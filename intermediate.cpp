@@ -13,24 +13,34 @@ Intermediate::Intermediate(const Table &table)
 {
     numAttrs = table.numAttrs;
     attrs = table.attrs;
-    EntryNode* head = new EntryNode;
-    head->entry = table.entries[0];
 
-    int i = 1;
-    EntryNode* p;
-    for (p = head; i < numAttrs; p = p->next)
+    int i = 0;
+    if (table.numEntries == 0)
     {
-        p->next = new EntryNode;
-        p->next->entry = table.entries[i];
-        p->next->prev = p;
-
-        i += 1;
+        head = nullptr;
+        tail = nullptr;
     }
+    else
+    {
+        for (EntryNode *p = new EntryNode; i < table.numEntries; i++) {
+//            p->entry = new string[numAttrs];
+            p->entry = table.entries[i];
 
-    EntryNode* tail = new EntryNode;
-    tail = p;
-    tail->next = nullptr;
-    head->prev = nullptr;
+            if (i == 0) {
+                head = p;
+                p->prev = nullptr;
+                p->next = new EntryNode;
+                p->next->prev = p;
+            } else if (i == table.numEntries - 1) {
+                p->next = nullptr;
+                tail = p;
+            } else {
+                p->next = new EntryNode;
+                p->next->prev = p;
+            }
+            p = p->next;
+        }
+    }
 }
 
 Intermediate::~Intermediate()
@@ -59,6 +69,7 @@ Intermediate& Intermediate::where(const string &attr, enum compare mode, const s
     if (mode == EQ)
     {
         int count = 0;
+        EntryNode* temp_tail;
         for (EntryNode* p = head; p != nullptr; count++)
         {
             if (p->entry[pos] != value)
@@ -85,12 +96,20 @@ Intermediate& Intermediate::where(const string &attr, enum compare mode, const s
                     p = temp;
                 }
             }
+            else if(p->entry[pos] == value)
+            {
+                temp_tail = p;
+                p = p->next;
+            }
         }
+        tail = temp_tail;
+        tail->next = nullptr;
         return *this;
     }
     else if (mode == CONTAINS)
     {
         int count = 0;
+        EntryNode* temp_tail;
         for (EntryNode* p = head; p != nullptr; count++)
         {
             if (p->entry[pos].find(value) == string::npos)
@@ -117,11 +136,20 @@ Intermediate& Intermediate::where(const string &attr, enum compare mode, const s
                     p = temp;
                 }
             }
+            else if(p->entry[pos].find(value) != string::npos)
+            {
+                temp_tail = p;
+                p = p->next;
+            }
         }
+        tail = temp_tail;
+        tail->next = nullptr;
         return *this;
     }
-
-    return *this;
+    else
+    {
+        return *this;
+    }
 }
 
 Intermediate& Intermediate::orderBy(const string &attr, enum order order)
@@ -187,7 +215,7 @@ Intermediate& Intermediate::limit(unsigned int limit)
     {
         length += 1;
     }
-    if (length < limit)
+    if (limit > length)
     {
         return *this;
     }
@@ -205,21 +233,21 @@ Intermediate& Intermediate::limit(unsigned int limit)
         return *this;
     }
 
-    EntryNode* p = head;
-    for (int i = 0; i < limit-1; p = p->next)
+    int i = 0;
+    for (EntryNode* p = head; i < limit-1; p = p->next)
     {
         i++;
+        tail = p->next;
     }
-    tail = p;
 
     EntryNode* temp;
-    for (EntryNode* q = p->next; q != nullptr;)
+    for (EntryNode* q = tail->next; q != nullptr;)
     {
         temp = q->next;
         delete q;
         q = temp;
     }
-
+    tail->next = nullptr;
     return *this;
 }
 
@@ -241,18 +269,107 @@ void Intermediate::update(const string &attr, const string &new_value) const
 
 void Intermediate::select(const string *attrs, int numAttrs) const
 {
-//    if (attrs == nullptr)
-//    {
-//        for (int i = 0; i < this->numAttrs; i++)
-//        {
-//            if (i != numAttrs-1)
-//            {
-//                cout << this->attrs[i] << ' | ';
-//            } else {cout << this->attrs[i];}
-//        }
-//        cout << endl;
-//        for
-//
-//    }
+    int* len = new int[this->numAttrs];
+    if (this->numAttrs == 0) {delete [] len; return;}
+    else
+    {
+        for (int i = 0; i < this->numAttrs; i++)
+        {
+            len[i] = this->attrs[i].length();
+        }
+        for (EntryNode* p = head; p != nullptr;)
+        {
+            for (int pos = 0; pos < this->numAttrs; pos++)
+            {
+                if (p->entry[pos].length() > len[pos])
+                {
+                    len[pos] = p->entry[pos].length();
+                }
+            }
+            p = p->next;
+        }
+    }
+
+    if (attrs == nullptr)
+    {
+        for (int i = 0; i < this->numAttrs; i++)
+        {
+            if (i < this->numAttrs-1)
+            {
+                cout << _left_pad_until(this->attrs[i], len[i]) << " | ";
+            }
+            else
+            {
+                cout << _left_pad_until(this->attrs[i], len[i]);
+            }
+        }
+        cout << endl;
+        for (EntryNode* p = head; p != nullptr;)
+        {
+            for (int pos = 0; pos < this->numAttrs; pos++)
+            {
+                if (pos != this->numAttrs-1)
+                {
+                    cout << _left_pad_until(p->entry[pos], len[pos]) << " | ";
+                } else {cout << _left_pad_until(p->entry[pos], len[pos]);}
+            }
+            p = p->next;
+            cout << endl;
+        }
+        delete [] len;
+    }
+    else
+    {
+        int* temp_pos = new int[numAttrs];
+        for (int i = 0; i < numAttrs; i++)
+        {
+            for (int j = 0; j < this->numAttrs; j++)
+            {
+                if (attrs[i] == this->attrs[j])
+                {
+                    temp_pos[i] = j;
+                }
+            }
+        }
+
+        for (int pos = 0; pos < numAttrs; pos++)
+        {
+            for (int i = 0; i < this->numAttrs; i++)
+            {
+                if (i == temp_pos[pos])
+                {
+                    if (i != temp_pos[numAttrs-1])
+                    {
+                        cout << _left_pad_until(this->attrs[i], len[i]) << " | ";
+                    }
+                    else
+                    {
+                        cout << _left_pad_until(this->attrs[i], len[i]);
+                    }
+                }
+            }
+        }
+        cout << endl;
+        for (EntryNode* p = head; p != nullptr;)
+        {
+            for (int i = 0; i < numAttrs; i++)
+            {
+                for (int pos = 0; pos < this->numAttrs; pos++)
+                {
+                    if (pos == temp_pos[i])
+                    {
+                        if (pos != temp_pos[numAttrs-1])
+                        {
+                            cout << _left_pad_until(p->entry[pos], len[pos]) << " | ";
+                        } else {cout << _left_pad_until(p->entry[pos], len[pos]);}
+                    }
+                }
+            }
+            p = p->next;
+            cout << endl;
+        }
+        delete [] len;
+        delete [] temp_pos;
+    }
 }
 

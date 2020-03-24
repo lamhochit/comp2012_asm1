@@ -18,8 +18,22 @@ Table::Table(const Table &another)
 {
     this->numAttrs = another.numAttrs;
     this->numEntries = another.numEntries;
-    this->attrs = new string[numAttrs];
-    this->entries = new string*[numEntries];
+    if (numAttrs > 0)
+    {
+        this->attrs = new string[numAttrs];
+    }
+    else if (numAttrs == 0)
+    {
+        this->attrs = nullptr;
+    }
+    if (numEntries > 0)
+    {
+        this->entries = new string*[numEntries];
+    }
+    else if (numEntries == 0)
+    {
+        this->entries=nullptr;
+    }
 
     for (int i = 0; i < numAttrs; i++)
     {
@@ -82,6 +96,7 @@ bool Table::addAttribute(const string &attr, int index, const string &default_va
         attrs = temp_attrs;
     } else
     {
+        delete [] temp_attrs;
         return false;
     }
 
@@ -94,9 +109,9 @@ bool Table::addAttribute(const string &attr, int index, const string &default_va
     {
         for (int row = 0; row < numEntries; row++)
         {
-            string* temp_entry = new string[numAttrs+1];
             if (index == -1 or index == numAttrs)
             {
+                string* temp_entry = new string[numAttrs+1];
                 for (int i = 0; i < numAttrs; i++)
                 {
                     temp_entry[i] = entries[row][i];
@@ -107,6 +122,7 @@ bool Table::addAttribute(const string &attr, int index, const string &default_va
             }
             else if (index > -1 and index < numAttrs)
             {
+                string* temp_entry = new string[numAttrs+1];
                 for (int i = 0; i < index; i++)
                 {
                     temp_entry[i] = entries[row][i];
@@ -157,7 +173,6 @@ bool Table::addEntry(const string *entry, int index)
                 temp_entry[i] = entry[i];
             }
             temp_entries[numEntries] = temp_entry;
-            delete [] entries;
             entries = temp_entries;
             numEntries += 1;
             return true;
@@ -175,20 +190,17 @@ bool Table::addEntry(const string *entry, int index)
         {
             temp_entry[i] = entry[i];
         }
+        temp_entries[index] = temp_entry;
         for (int row = index; row < numEntries; row++)
         {
             temp_entries[row+1] = entries[row];
         }
-        temp_entries[index] = temp_entry;
         delete [] entries;
         entries = temp_entries;
         numEntries += 1;
         return true;
     }
-    else
-    {
-        return false;
-    }
+    return false;
 }
 
 bool Table::deleteAttribute(int index)
@@ -218,12 +230,35 @@ bool Table::deleteAttribute(int index)
     }
     else
     {
+        delete [] temp_attrs;
         return false;
     }
 
+    if (numAttrs == 1)
+    {
+        numAttrs -= 1;
+        delete [] attrs;
+        attrs = nullptr;
+        if (numEntries > 0)
+        {
+            for (int i = 0; i < numEntries; i++) {
+                delete[] entries[i];
+                entries[i] = nullptr;
+            }
+            delete[] entries;
+            entries = nullptr;
+            numEntries = 0;
+        }
+        return true;
+    }
     if (numEntries == 0)
     {
         numAttrs -= 1;
+        if (numAttrs == 0)
+        {
+            delete [] this->attrs;
+            this->attrs = nullptr;
+        }
         return true;
     }
     else if (numEntries > 0)
@@ -256,6 +291,11 @@ bool Table::deleteAttribute(int index)
             }
         }
         numAttrs -= 1;
+        if (numAttrs == 0)
+        {
+            delete [] this->attrs;
+            this->attrs = nullptr;
+        }
         return true;
     }
     return false;
@@ -270,9 +310,15 @@ bool Table::deleteEntry(int index)
         {
             temp_entries[row] = entries[row];
         }
+        delete [] entries[index];
         delete [] entries;
         entries = temp_entries;
         numEntries -= 1;
+        if (numEntries == 0)
+        {
+            delete [] entries;
+            entries = nullptr;
+        }
         return true;
     }
     else if (index > -1 and index < numEntries-1)
@@ -286,9 +332,15 @@ bool Table::deleteEntry(int index)
         {
             temp_entries[row-1] = entries[row];
         }
+        delete [] entries[index];
         delete [] entries;
         entries = temp_entries;
         numEntries -= 1;
+        if (numEntries == 0)
+        {
+            delete [] entries;
+            entries = nullptr;
+        }
         return true;
     }
     else
@@ -311,12 +363,16 @@ bool Table::append(const Table &another)
         }
     }
 
-    string** temp_entries = new string*[numEntries*2];
+    if (another.numEntries == 0)
+    {
+        return true;
+    }
+    string** temp_entries = new string*[numEntries+another.numEntries];
     for (int i = 0; i < numEntries; i++)
     {
         temp_entries[i] = entries[i];
     }
-    for (int i = numEntries; i < numEntries*2; i++)
+    for (int i = numEntries; i < numEntries+another.numEntries; i++)
     {
         string* temp_entry = new string[numAttrs];
         for (int j = 0; j < numAttrs; j++)
@@ -325,7 +381,8 @@ bool Table::append(const Table &another)
         }
         temp_entries[i] = temp_entry;
     }
-    numEntries += numEntries;
+    numEntries += another.numEntries;
+    delete [] this->entries;
     this->entries = temp_entries;
     return true;
 }

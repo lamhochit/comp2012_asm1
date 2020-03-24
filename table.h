@@ -34,6 +34,14 @@ public:
 	// TODO
 	bool append(const Table &another);
 
+    int getNumAttrs() const { return numAttrs; }
+
+    int getNumEntries() const { return numEntries; }
+
+    const string& getAttribute(int index) const { return attrs[index]; }
+
+    const string& getEntry(int entryIndex, int attrIndex) const { return entries[entryIndex][attrIndex]; }
+
 	// Given
 	// Begin a query by making an "Intermediate" object from the table
 	Intermediate query() const { return Intermediate {*this}; }
